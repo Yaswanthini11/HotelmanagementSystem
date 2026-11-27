@@ -3,9 +3,9 @@ namespace HotelBooking.Enums
 {
     public enum BookingStatus
     {
-        Pending = 1,
-        Confirmed = 2,
-        Cancelled = 3,
-        Completed = 4
+        Pending = 0,
+        Confirmed = 1,
+        Cancelled = 2,
+        Completed = 3
     }
 }
