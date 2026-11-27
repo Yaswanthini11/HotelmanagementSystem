@@ -3,6 +3,8 @@ using HotelBooking.DTOs.Amenities;
 using HotelBooking.Models;
 using HotelBooking.Repositories.Interfaces;
 using HotelBooking.Services.Interfaces;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace HotelBooking.Services.Implementations;
 
@@ -47,8 +49,8 @@ public class AmenityService : IAmenityService
     {
         var amenity = new Amenity
         {
-            Name = request.Name,
-            Description = request.Description
+            Name = request.Name.Trim(),
+            Description = request.Description ?? string.Empty
         };
 
         await _amenityRepository.AddAsync(amenity);
@@ -71,8 +73,8 @@ public class AmenityService : IAmenityService
         if (amenity == null)
             return null;
 
-        amenity.Name = request.Name;
-        amenity.Description = request.Description;
+        amenity.Name = request.Name.Trim();
+        amenity.Description = request.Description ?? string.Empty;
 
         await _amenityRepository.UpdateAsync(amenity);
         await _amenityRepository.SaveChangesAsync();
