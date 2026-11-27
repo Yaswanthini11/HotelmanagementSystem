@@ -1,8 +1,8 @@
 using HotelBooking.DTOs.Hotels;
+using HotelBooking.DTOs.Amenities;
 using HotelBooking.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
 namespace HotelBooking.Controllers;
 
 [Route("api/[controller]")]

@@ -8,171 +8,191 @@ namespace HotelBooking.Services.Implementations;
 
 public class HotelService : IHotelService
 {
-	private readonly IHotelRepository _hotelRepository;
-	private readonly IAmenityRepository _amenityRepository;
+    private readonly IHotelRepository _hotelRepository;
+    private readonly IAmenityRepository _amenityRepository;
 
-	public HotelService(
-		IHotelRepository hotelRepository,
-		IAmenityRepository amenityRepository)
-	{
-		_hotelRepository = hotelRepository;
-		_amenityRepository = amenityRepository;
-	}
+    public HotelService(
+        IHotelRepository hotelRepository,
+        IAmenityRepository amenityRepository)
+    {
+        _hotelRepository = hotelRepository;
+        _amenityRepository = amenityRepository;
+    }
 
-	public async Task<IEnumerable<HotelResponseDto>> GetAllAsync(
-		HotelSearchRequestDto request)
-	{
-		var hotels = await _hotelRepository.GetAllAsync();
+    // GET: Retrieve all hotels with search filters
+    public async Task<IEnumerable<HotelResponseDto>> GetAllAsync(
+        HotelSearchRequestDto request)
+    {
+        var hotels = await _hotelRepository.GetAllAsync();
 
-		if (!string.IsNullOrWhiteSpace(request.City))
-		{
-			hotels = hotels.Where(h =>
-				h.City.Contains(request.City,
-					StringComparison.OrdinalIgnoreCase));
-		}
+        // Filter by city
+        if (!string.IsNullOrWhiteSpace(request.City))
+        {
+            hotels = hotels.Where(h =>
+                h.City.Contains(
+                    request.City,
+                    StringComparison.OrdinalIgnoreCase));
+        }
 
-		if (!string.IsNullOrWhiteSpace(request.Name))
-		{
-			hotels = hotels.Where(h =>
-				h.Name.Contains(request.Name,
-					StringComparison.OrdinalIgnoreCase));
-		}
+        // Search by hotel name using SearchTerm
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            hotels = hotels.Where(h =>
+                h.Name.Contains(
+                    request.SearchTerm,
+                    StringComparison.OrdinalIgnoreCase));
+        }
 
-		if (request.StarRating.HasValue)
-		{
-			hotels = hotels.Where(h =>
-				h.StarRating == request.StarRating.Value);
-		}
+        // Filter by star rating
+        if (request.StarRating.HasValue)
+        {
+            hotels = hotels.Where(h =>
+                h.StarRating == request.StarRating.Value);
+        }
 
-		return hotels
-			.Where(h => h.IsActive)
-			.Select(MapToResponse);
-	}
+        // Show only active hotels
+        hotels = hotels.Where(h => h.IsActive);
 
-	public async Task<HotelResponseDto?> GetByIdAsync(int hotelId)
-	{
-		var hotel = await _hotelRepository.GetByIdAsync(hotelId);
+        return hotels.Select(MapToResponse).ToList();
+    }
 
-		if (hotel == null || !hotel.IsActive)
-			return null;
+    // GET: Retrieve hotel by ID
+    public async Task<HotelResponseDto?> GetByIdAsync(int hotelId)
+    {
+        var hotel = await _hotelRepository.GetByIdAsync(hotelId);
 
-		return MapToResponse(hotel);
-	}
+        if (hotel == null || !hotel.IsActive)
+            return null;
 
-	public async Task<HotelResponseDto> CreateAsync(
-		CreateHotelRequestDto request)
-	{
-		var hotel = new Hotel
-		{
-			Name = request.Name,
-			Description = request.Description,
-			Address = request.Address,
-			City = request.City,
-			State = request.State,
-			Country = request.Country,
-			StarRating = request.StarRating,
-			ContactNumber = request.ContactNumber,
-			IsActive = true
-		};
+        return MapToResponse(hotel);
+    }
 
-		await _hotelRepository.AddAsync(hotel);
-		await _hotelRepository.SaveChangesAsync();
+    // POST: Create hotel
+    public async Task<HotelResponseDto> CreateAsync(
+        CreateHotelRequestDto request)
+    {
+        var hotel = new Hotel
+        {
+            Name = request.Name,
+            Description = request.Description,
+            Address = request.Address,
+            City = request.City,
+            State = request.State,
+            Country = request.Country,
+            StarRating = request.StarRating,
+            ContactNumber = request.ContactNumber,
+            IsActive = true
+        };
 
-		return MapToResponse(hotel);
-	}
+        await _hotelRepository.AddAsync(hotel);
+        await _hotelRepository.SaveChangesAsync();
 
-	public async Task<HotelResponseDto?> UpdateAsync(
-		int hotelId,
-		UpdateHotelRequestDto request)
-	{
-		var hotel = await _hotelRepository.GetByIdAsync(hotelId);
+        return MapToResponse(hotel);
+    }
 
-		if (hotel == null)
-			return null;
+    // PUT: Update hotel
+    public async Task<HotelResponseDto?> UpdateAsync(
+        int hotelId,
+        UpdateHotelRequestDto request)
+    {
+        var hotel = await _hotelRepository.GetByIdAsync(hotelId);
 
-		hotel.Name = request.Name;
-		hotel.Description = request.Description;
-		hotel.Address = request.Address;
-		hotel.City = request.City;
-		hotel.State = request.State;
-		hotel.Country = request.Country;
-		hotel.StarRating = request.StarRating;
-		hotel.ContactNumber = request.ContactNumber;
+        if (hotel == null)
+            return null;
 
-		await _hotelRepository.UpdateAsync(hotel);
-		await _hotelRepository.SaveChangesAsync();
+        hotel.Name = request.Name;
+        hotel.Description = request.Description;
+        hotel.Address = request.Address;
+        hotel.City = request.City;
+        hotel.State = request.State;
+        hotel.Country = request.Country;
+        hotel.StarRating = request.StarRating;
+        hotel.ContactNumber = request.ContactNumber;
 
-		return MapToResponse(hotel);
-	}
+        await _hotelRepository.UpdateAsync(hotel);
+        await _hotelRepository.SaveChangesAsync();
 
-	public async Task<bool> DeleteAsync(int hotelId)
-	{
-		var deleted = await _hotelRepository.DeleteAsync(hotelId);
+        return MapToResponse(hotel);
+    }
 
-		if (!deleted)
-			return false;
+    // DELETE: Delete hotel
+    public async Task<bool> DeleteAsync(int hotelId)
+    {
+        var deleted = await _hotelRepository.DeleteAsync(hotelId);
 
-		await _hotelRepository.SaveChangesAsync();
+        if (!deleted)
+            return false;
 
-		return true;
-	}
+        await _hotelRepository.SaveChangesAsync();
 
-	public async Task<bool> UpdateAmenitiesAsync(
-		int hotelId,
-		List<int> amenityIds)
-	{
-		var hotel = await _hotelRepository.GetByIdAsync(hotelId);
+        return true;
+    }
 
-		if (hotel == null)
-			return false;
+    // PUT: Update hotel amenities
+    public async Task<bool> UpdateAmenitiesAsync(
+        int hotelId,
+        List<int> amenityIds)
+    {
+        var hotel = await _hotelRepository.GetByIdAsync(hotelId);
 
-		var amenities = await _amenityRepository.GetByIdsAsync(amenityIds);
+        if (hotel == null)
+            return false;
 
-		if (amenities.Count != amenityIds.Distinct().Count())
-			return false;
+        var distinctAmenityIds = amenityIds.Distinct().ToList();
 
-		hotel.HotelAmenities.Clear();
+        var amenities = await _amenityRepository.GetByIdsAsync(
+            distinctAmenityIds);
 
-		foreach (var amenity in amenities)
-		{
-			hotel.HotelAmenities.Add(new HotelAmenity
-			{
-				HotelId = hotelId,
-				AmenityId = amenity.AmenityId
-			});
-		}
+        // Check whether all requested amenities exist
+        if (amenities.Count != distinctAmenityIds.Count)
+            return false;
 
-		await _hotelRepository.SaveChangesAsync();
+        // Remove existing hotel amenities
+        hotel.HotelAmenities.Clear();
 
-		return true;
-	}
+        // Add selected amenities
+        foreach (var amenity in amenities)
+        {
+            hotel.HotelAmenities.Add(new HotelAmenity
+            {
+                HotelId = hotelId,
+                AmenityId = amenity.AmenityId
+            });
+        }
 
-	private static HotelResponseDto MapToResponse(Hotel hotel)
-	{
-		return new HotelResponseDto
-		{
-			HotelId = hotel.HotelId,
-			Name = hotel.Name,
-			Description = hotel.Description,
-			Address = hotel.Address,
-			City = hotel.City,
-			State = hotel.State,
-			Country = hotel.Country,
-			StarRating = hotel.StarRating,
-			ContactNumber = hotel.ContactNumber,
-			HotelImages = hotel.HotelImages.Select(image =>
-				new HotelImageResponseDto
-				{
-					HotelImageId = image.HotelImageId,
-					ImageUrl = image.ImageUrl
-				}).ToList(),
-			Amenities = hotel.HotelAmenities.Select(ha =>
-				new AmenityResponseDto
-				{
-					AmenityId = ha.Amenity.AmenityId,
-					Name = ha.Amenity.Name,
-					Description = ha.Amenity.Description
-				}).ToList()
-		};
-	}
+        await _hotelRepository.SaveChangesAsync();
+
+        return true;
+    }
+
+    // Map Hotel model to HotelResponseDto
+    private static HotelResponseDto MapToResponse(Hotel hotel)
+    {
+        return new HotelResponseDto
+        {
+            HotelId = hotel.HotelId,
+            Name = hotel.Name,
+            Description = hotel.Description,
+            Address = hotel.Address,
+            City = hotel.City,
+            State = hotel.State,
+            Country = hotel.Country,
+            StarRating = hotel.StarRating,
+            ContactNumber = hotel.ContactNumber,
+            IsActive = hotel.IsActive,
+
+            // Map hotel images
+            Images = hotel.HotelImages.Select(image =>
+                new HotelImageResponseDto
+                {
+                    HotelImageId = image.HotelImageId,
+                    ImageUrl = image.ImageUrl
+                }).ToList(),
+
+            // Map amenity names
+            Amenities = hotel.HotelAmenities
+                .Select(ha => ha.Amenity.Name)
+                .ToList()
+        };
+    }
 }

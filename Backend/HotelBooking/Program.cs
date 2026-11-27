@@ -5,9 +5,13 @@ using System.Security.Claims;
 using HotelBooking.Data;
 using HotelBooking.Models;
 
+// Repository namespaces
+using HotelBooking.Repositories;
 using HotelBooking.Repositories.Interfaces;
 using HotelBooking.Repositories.Implementations;
 
+// Service namespaces
+using HotelBooking.Services;
 using HotelBooking.Services.Interfaces;
 using HotelBooking.Services.Implementations;
 
@@ -124,21 +128,24 @@ builder.Services.AddCors(options =>
 });
 
 // --------------------------------------
-// 7. Register Hotel Repositories
+// 7. Register Repositories
 // --------------------------------------
 
 builder.Services.AddScoped<IHotelRepository, HotelRepository>();
 builder.Services.AddScoped<IAmenityRepository, AmenityRepository>();
-
+builder.Services.AddScoped<IRoomTypeRepository, RoomTypeRepository>();
+builder.Services.AddScoped<IRoomInventoryRepository, RoomInventoryRepository>();
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 // --------------------------------------
-// 8. Register Hotel Services
+// 8. Register Services
 // --------------------------------------
 
 builder.Services.AddScoped<IHotelService, HotelService>();
 builder.Services.AddScoped<IAmenityService, AmenityService>();
-
-
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IRoomTypeService, RoomTypeService>();
+builder.Services.AddScoped<IRoomInventoryService, RoomInventoryService>();
+builder.Services.AddScoped<IBookingService, BookingService>();
 // --------------------------------------
 // 9. Configure OpenAPI
 // --------------------------------------
@@ -148,7 +155,13 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 // --------------------------------------
-// 10. Configure HTTP Pipeline
+// 10. Seed Admin and Roles
+// --------------------------------------
+
+await DbSeeder.SeedAsync(app.Services, app.Configuration);
+
+// --------------------------------------
+// 11. Configure HTTP Pipeline
 // --------------------------------------
 
 if (app.Environment.IsDevelopment())
