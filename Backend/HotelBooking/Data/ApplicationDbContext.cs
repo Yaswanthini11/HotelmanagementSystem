@@ -40,7 +40,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasForeignKey(r => r.HotelId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Hotel Amenity - composite primary key
+        // Hotel Amenity
         builder.Entity<HotelAmenity>()
             .HasKey(ha => new { ha.HotelId, ha.AmenityId });
 
@@ -56,7 +56,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasForeignKey(ha => ha.AmenityId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Room Type Amenity - composite primary key
+        // Room Type Amenity
         builder.Entity<RoomTypeAmenity>()
             .HasKey(ra => new { ra.RoomTypeId, ra.AmenityId });
 

@@ -1,13 +1,9 @@
 
-using HotelBooking.DTOs.Amenities;
 using HotelBooking.DTOs.Hotels;
 using HotelBooking.Models;
 using HotelBooking.Repositories.Interfaces;
 using HotelBooking.Services.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 
 namespace HotelBooking.Services.Implementations;
 

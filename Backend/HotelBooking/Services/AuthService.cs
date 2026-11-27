@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
@@ -30,12 +30,24 @@ public class AuthService : IAuthService
         _configuration = configuration;
     }
 
-    public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto request)
+    public async Task<AuthResponseDto> RegisterAsync(
+        RegisterRequestDto request)
     {
-        var existingUser = await _userManager.FindByEmailAsync(request.Email);
+        if (request.Password != request.ConfirmPassword)
+        {
+            throw new InvalidOperationException(
+                "Password and confirm password do not match.");
+        }
+
+        var email = request.Email.Trim();
+
+        var existingUser = await _userManager.FindByEmailAsync(email);
 
         if (existingUser != null)
-            throw new InvalidOperationException("Email is already registered.");
+        {
+            throw new InvalidOperationException(
+                "An account with this email already exists.");
+        }
 
         const string customerRole = "Customer";
 
@@ -47,15 +59,16 @@ public class AuthService : IAuthService
             if (!roleResult.Succeeded)
             {
                 throw new InvalidOperationException(
-                    string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+                    string.Join(", ",
+                        roleResult.Errors.Select(e => e.Description)));
             }
         }
 
         var user = new ApplicationUser
         {
             FullName = request.FullName.Trim(),
-            Email = request.Email.Trim(),
-            UserName = request.Email.Trim(),
+            Email = email,
+            UserName = email,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -65,7 +78,8 @@ public class AuthService : IAuthService
         if (!createResult.Succeeded)
         {
             throw new InvalidOperationException(
-                string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                string.Join(", ",
+                    createResult.Errors.Select(e => e.Description)));
         }
 
         var addRoleResult = await _userManager.AddToRoleAsync(
@@ -76,18 +90,23 @@ public class AuthService : IAuthService
             await _userManager.DeleteAsync(user);
 
             throw new InvalidOperationException(
-                string.Join(", ", addRoleResult.Errors.Select(e => e.Description)));
+                string.Join(", ",
+                    addRoleResult.Errors.Select(e => e.Description)));
         }
 
         return await GenerateTokenAsync(user);
     }
 
-    public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
+    public async Task<AuthResponseDto> LoginAsync(
+        LoginRequestDto request)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
 
         if (user == null)
-            throw new UnauthorizedAccessException("Invalid email or password.");
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid email or password.");
+        }
 
         var result = await _signInManager.CheckPasswordSignInAsync(
             user,
@@ -95,12 +114,24 @@ public class AuthService : IAuthService
             lockoutOnFailure: true);
 
         if (!result.Succeeded)
-            throw new UnauthorizedAccessException("Invalid email or password.");
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid email or password.");
+        }
+
+        var roles = await _userManager.GetRolesAsync(user);
+
+        if (roles.Count == 0)
+        {
+            throw new UnauthorizedAccessException(
+                "User does not have an assigned role.");
+        }
 
         return await GenerateTokenAsync(user);
     }
 
-    public async Task<CurrentUserResponseDto?> GetCurrentUserAsync(string userId)
+    public async Task<CurrentUserResponseDto?> GetCurrentUserAsync(
+        string userId)
     {
         var user = await _userManager.FindByIdAsync(userId);
 
@@ -122,13 +153,16 @@ public class AuthService : IAuthService
         ApplicationUser user)
     {
         var key = _configuration["JwtSettings:SecretKey"]
-            ?? throw new InvalidOperationException("JWT SecretKey is missing.");
+            ?? throw new InvalidOperationException(
+                "JWT SecretKey is missing.");
 
         var issuer = _configuration["JwtSettings:Issuer"]
-            ?? throw new InvalidOperationException("JWT Issuer is missing.");
+            ?? throw new InvalidOperationException(
+                "JWT Issuer is missing.");
 
         var audience = _configuration["JwtSettings:Audience"]
-            ?? throw new InvalidOperationException("JWT Audience is missing.");
+            ?? throw new InvalidOperationException(
+                "JWT Audience is missing.");
 
         var expiryMinutes = int.TryParse(
             _configuration["JwtSettings:ExpiryMinutes"],
@@ -146,8 +180,8 @@ public class AuthService : IAuthService
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        claims.AddRange(roles.Select(
-            role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(
+            roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var signingKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(key));
