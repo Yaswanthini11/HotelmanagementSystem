@@ -1,10 +1,11 @@
-
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+
 using HotelBooking.DTOs.Auth;
 using HotelBooking.Models;
 using HotelBooking.Services.Interfaces;
+
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 
@@ -13,15 +14,18 @@ namespace HotelBooking.Services.Implementations;
 public class AuthService : IAuthService
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IConfiguration _configuration;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager,
         RoleManager<IdentityRole> roleManager,
         IConfiguration configuration)
     {
         _userManager = userManager;
+        _signInManager = signInManager;
         _roleManager = roleManager;
         _configuration = configuration;
     }
@@ -35,30 +39,14 @@ public class AuthService : IAuthService
                 "Password and confirm password do not match.");
         }
 
-        var existingUser = await _userManager.FindByEmailAsync(request.Email);
+        var email = request.Email.Trim();
+
+        var existingUser = await _userManager.FindByEmailAsync(email);
 
         if (existingUser != null)
         {
             throw new InvalidOperationException(
                 "An account with this email already exists.");
-        }
-
-        var user = new ApplicationUser
-        {
-            UserName = request.Email,
-            Email = request.Email,
-            FullName = request.FullName
-        };
-
-        var result = await _userManager.CreateAsync(
-            user, request.Password);
-
-        if (!result.Succeeded)
-        {
-            var errors = string.Join(
-                ", ", result.Errors.Select(e => e.Description));
-
-            throw new InvalidOperationException(errors);
         }
 
         const string customerRole = "Customer";
@@ -70,31 +58,43 @@ public class AuthService : IAuthService
 
             if (!roleResult.Succeeded)
             {
-                await _userManager.DeleteAsync(user);
-
-                var errors = string.Join(
-                    ", ",
-                    roleResult.Errors.Select(e => e.Description));
-
-                throw new InvalidOperationException(errors);
+                throw new InvalidOperationException(
+                    string.Join(", ",
+                        roleResult.Errors.Select(e => e.Description)));
             }
         }
 
-        var roleAssignment = await _userManager.AddToRoleAsync(
+        var user = new ApplicationUser
+        {
+            FullName = request.FullName.Trim(),
+            Email = email,
+            UserName = email,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var createResult = await _userManager.CreateAsync(
+            user, request.Password);
+
+        if (!createResult.Succeeded)
+        {
+            throw new InvalidOperationException(
+                string.Join(", ",
+                    createResult.Errors.Select(e => e.Description)));
+        }
+
+        var addRoleResult = await _userManager.AddToRoleAsync(
             user, customerRole);
 
-        if (!roleAssignment.Succeeded)
+        if (!addRoleResult.Succeeded)
         {
             await _userManager.DeleteAsync(user);
 
-            var errors = string.Join(
-                ", ",
-                roleAssignment.Errors.Select(e => e.Description));
-
-            throw new InvalidOperationException(errors);
+            throw new InvalidOperationException(
+                string.Join(", ",
+                    addRoleResult.Errors.Select(e => e.Description)));
         }
 
-        return await GenerateAuthResponseAsync(user, customerRole);
+        return await GenerateTokenAsync(user);
     }
 
     public async Task<AuthResponseDto> LoginAsync(
@@ -108,10 +108,12 @@ public class AuthService : IAuthService
                 "Invalid email or password.");
         }
 
-        var passwordValid = await _userManager.CheckPasswordAsync(
-            user, request.Password);
+        var result = await _signInManager.CheckPasswordSignInAsync(
+            user,
+            request.Password,
+            lockoutOnFailure: true);
 
-        if (!passwordValid)
+        if (!result.Succeeded)
         {
             throw new UnauthorizedAccessException(
                 "Invalid email or password.");
@@ -125,7 +127,7 @@ public class AuthService : IAuthService
                 "User does not have an assigned role.");
         }
 
-        return await GenerateAuthResponseAsync(user, roles[0]);
+        return await GenerateTokenAsync(user);
     }
 
     public async Task<CurrentUserResponseDto?> GetCurrentUserAsync(
@@ -147,59 +149,64 @@ public class AuthService : IAuthService
         };
     }
 
-    private async Task<AuthResponseDto> GenerateAuthResponseAsync(
-        ApplicationUser user,
-        string role)
+    private async Task<AuthResponseDto> GenerateTokenAsync(
+        ApplicationUser user)
     {
-        var jwtSettings = _configuration.GetSection("JwtSettings");
-
-        var secretKey = jwtSettings["SecretKey"]
+        var key = _configuration["JwtSettings:SecretKey"]
             ?? throw new InvalidOperationException(
                 "JWT SecretKey is missing.");
 
-        var issuer = jwtSettings["Issuer"];
-        var audience = jwtSettings["Audience"];
+        var issuer = _configuration["JwtSettings:Issuer"]
+            ?? throw new InvalidOperationException(
+                "JWT Issuer is missing.");
+
+        var audience = _configuration["JwtSettings:Audience"]
+            ?? throw new InvalidOperationException(
+                "JWT Audience is missing.");
 
         var expiryMinutes = int.TryParse(
-            jwtSettings["ExpiryMinutes"], out var minutes)
-            ? minutes
+            _configuration["JwtSettings:ExpiryMinutes"],
+            out var configuredExpiry)
+            ? configuredExpiry
             : 60;
 
-        var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
+        var roles = await _userManager.GetRolesAsync(user);
 
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id),
-            new Claim(ClaimTypes.Name, user.FullName),
-            new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
-            new Claim(ClaimTypes.Role, role)
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Name, user.FullName),
+            new(ClaimTypes.Email, user.Email ?? string.Empty),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(secretKey));
+        claims.AddRange(
+            roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        var signingKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(key));
 
         var credentials = new SigningCredentials(
-            key, SecurityAlgorithms.HmacSha256);
+            signingKey,
+            SecurityAlgorithms.HmacSha256);
+
+        var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
 
         var token = new JwtSecurityToken(
             issuer: issuer,
             audience: audience,
             claims: claims,
             expires: expiresAt,
-            signingCredentials: credentials
-        );
-
-        var tokenString = new JwtSecurityTokenHandler()
-            .WriteToken(token);
+            signingCredentials: credentials);
 
         return new AuthResponseDto
         {
-            Token = tokenString,
+            Token = new JwtSecurityTokenHandler().WriteToken(token),
             ExpiresAt = expiresAt,
             UserId = user.Id,
             FullName = user.FullName,
             Email = user.Email ?? string.Empty,
-            Role = role
+            Role = roles.FirstOrDefault() ?? string.Empty
         };
     }
 }

@@ -1,5 +1,4 @@
-
-using HotelBooking.DTOs.Auth;
+﻿using HotelBooking.DTOs.Auth;
 
 namespace HotelBooking.Services.Interfaces;
 

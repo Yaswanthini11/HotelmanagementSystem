@@ -4,6 +4,7 @@ using HotelBooking.Models;
 using HotelBooking.Repositories.Interfaces;
 using HotelBooking.Services.Interfaces;
 
+
 namespace HotelBooking.Services.Implementations;
 
 public class HotelService : IHotelService
@@ -19,13 +20,11 @@ public class HotelService : IHotelService
         _amenityRepository = amenityRepository;
     }
 
-    // GET: Retrieve all hotels with search filters
     public async Task<IEnumerable<HotelResponseDto>> GetAllAsync(
         HotelSearchRequestDto request)
     {
         var hotels = await _hotelRepository.GetAllAsync();
 
-        // Filter by city
         if (!string.IsNullOrWhiteSpace(request.City))
         {
             hotels = hotels.Where(h =>
@@ -34,29 +33,31 @@ public class HotelService : IHotelService
                     StringComparison.OrdinalIgnoreCase));
         }
 
-        // Search by hotel name using SearchTerm
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
             hotels = hotels.Where(h =>
                 h.Name.Contains(
                     request.SearchTerm,
+                    StringComparison.OrdinalIgnoreCase) ||
+                h.Description.Contains(
+                    request.SearchTerm,
+                    StringComparison.OrdinalIgnoreCase) ||
+                h.City.Contains(
+                    request.SearchTerm,
                     StringComparison.OrdinalIgnoreCase));
         }
 
-        // Filter by star rating
         if (request.StarRating.HasValue)
         {
             hotels = hotels.Where(h =>
                 h.StarRating == request.StarRating.Value);
         }
 
-        // Show only active hotels
-        hotels = hotels.Where(h => h.IsActive);
-
-        return hotels.Select(MapToResponse).ToList();
+        return hotels
+            .Where(h => h.IsActive)
+            .Select(MapToResponse);
     }
 
-    // GET: Retrieve hotel by ID
     public async Task<HotelResponseDto?> GetByIdAsync(int hotelId)
     {
         var hotel = await _hotelRepository.GetByIdAsync(hotelId);
@@ -67,7 +68,6 @@ public class HotelService : IHotelService
         return MapToResponse(hotel);
     }
 
-    // POST: Create hotel
     public async Task<HotelResponseDto> CreateAsync(
         CreateHotelRequestDto request)
     {
@@ -90,7 +90,6 @@ public class HotelService : IHotelService
         return MapToResponse(hotel);
     }
 
-    // PUT: Update hotel
     public async Task<HotelResponseDto?> UpdateAsync(
         int hotelId,
         UpdateHotelRequestDto request)
@@ -115,7 +114,6 @@ public class HotelService : IHotelService
         return MapToResponse(hotel);
     }
 
-    // DELETE: Delete hotel
     public async Task<bool> DeleteAsync(int hotelId)
     {
         var deleted = await _hotelRepository.DeleteAsync(hotelId);
@@ -128,7 +126,6 @@ public class HotelService : IHotelService
         return true;
     }
 
-    // PUT: Update hotel amenities
     public async Task<bool> UpdateAmenitiesAsync(
         int hotelId,
         List<int> amenityIds)
@@ -138,19 +135,16 @@ public class HotelService : IHotelService
         if (hotel == null)
             return false;
 
-        var distinctAmenityIds = amenityIds.Distinct().ToList();
+        var uniqueAmenityIds = amenityIds.Distinct().ToList();
 
         var amenities = await _amenityRepository.GetByIdsAsync(
-            distinctAmenityIds);
+            uniqueAmenityIds);
 
-        // Check whether all requested amenities exist
-        if (amenities.Count != distinctAmenityIds.Count)
+        if (amenities.Count != uniqueAmenityIds.Count)
             return false;
 
-        // Remove existing hotel amenities
         hotel.HotelAmenities.Clear();
 
-        // Add selected amenities
         foreach (var amenity in amenities)
         {
             hotel.HotelAmenities.Add(new HotelAmenity
@@ -165,7 +159,6 @@ public class HotelService : IHotelService
         return true;
     }
 
-    // Map Hotel model to HotelResponseDto
     private static HotelResponseDto MapToResponse(Hotel hotel)
     {
         return new HotelResponseDto
@@ -181,16 +174,18 @@ public class HotelService : IHotelService
             ContactNumber = hotel.ContactNumber,
             IsActive = hotel.IsActive,
 
-            // Map hotel images
+            // DTO property is Images, not HotelImages.
             Images = hotel.HotelImages.Select(image =>
                 new HotelImageResponseDto
                 {
                     HotelImageId = image.HotelImageId,
-                    ImageUrl = image.ImageUrl
+                    ImageUrl = image.ImageUrl,
+                    IsPrimary = image.IsPrimary
                 }).ToList(),
 
-            // Map amenity names
+            // DTO property is List<string>, not List<AmenityResponseDto>.
             Amenities = hotel.HotelAmenities
+                .Where(ha => ha.Amenity != null)
                 .Select(ha => ha.Amenity.Name)
                 .ToList()
         };

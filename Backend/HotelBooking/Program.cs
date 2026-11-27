@@ -1,19 +1,15 @@
-
-using System.Text;
+using HotelBooking.Repositories;
+using HotelBooking.Services;
+using System;
 using System.Security.Claims;
+using System.Text;
 
 using HotelBooking.Data;
 using HotelBooking.Models;
-
-// Repository namespaces
-using HotelBooking.Repositories;
-using HotelBooking.Repositories.Interfaces;
 using HotelBooking.Repositories.Implementations;
-
-// Service namespaces
-using HotelBooking.Services;
-using HotelBooking.Services.Interfaces;
+using HotelBooking.Repositories.Interfaces;
 using HotelBooking.Services.Implementations;
+using HotelBooking.Services.Interfaces;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -22,26 +18,15 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --------------------------------------
-// 1. Add Controllers
-// --------------------------------------
-
+// 1. Controllers
 builder.Services.AddControllers();
 
-// --------------------------------------
-// 2. Configure SQL Server Database
-// --------------------------------------
-
+// 2. SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")
-    )
-);
+        builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// --------------------------------------
-// 3. Configure ASP.NET Core Identity
-// --------------------------------------
-
+// 3. ASP.NET Core Identity
 builder.Services
     .AddIdentityCore<ApplicationUser>(options =>
     {
@@ -58,10 +43,7 @@ builder.Services
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-// --------------------------------------
-// 4. Configure JWT Authentication
-// --------------------------------------
-
+// 4. JWT Authentication
 var jwtKey = builder.Configuration["JwtSettings:SecretKey"]
     ?? throw new InvalidOperationException("JWT SecretKey is missing.");
 
@@ -99,24 +81,17 @@ builder.Services
             ValidAudience = jwtAudience,
 
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtKey)
-            ),
+                Encoding.UTF8.GetBytes(jwtKey)),
 
             RoleClaimType = ClaimTypes.Role,
             ClockSkew = TimeSpan.FromSeconds(30)
         };
     });
 
-// --------------------------------------
-// 5. Configure Authorization
-// --------------------------------------
-
+// 5. Authorization
 builder.Services.AddAuthorization();
 
-// --------------------------------------
-// 6. Configure CORS for Angular
-// --------------------------------------
-
+// 6. CORS for Angular
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AngularPolicy", policy =>
@@ -127,43 +102,30 @@ builder.Services.AddCors(options =>
     });
 });
 
-// --------------------------------------
-// 7. Register Repositories
-// --------------------------------------
-
+// 7. Repository registrations
 builder.Services.AddScoped<IHotelRepository, HotelRepository>();
 builder.Services.AddScoped<IAmenityRepository, AmenityRepository>();
 builder.Services.AddScoped<IRoomTypeRepository, RoomTypeRepository>();
 builder.Services.AddScoped<IRoomInventoryRepository, RoomInventoryRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
-// --------------------------------------
-// 8. Register Services
-// --------------------------------------
 
+// 8. Service registrations
 builder.Services.AddScoped<IHotelService, HotelService>();
 builder.Services.AddScoped<IAmenityService, AmenityService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRoomTypeService, RoomTypeService>();
 builder.Services.AddScoped<IRoomInventoryService, RoomInventoryService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
-// --------------------------------------
-// 9. Configure OpenAPI
-// --------------------------------------
+builder.Services.AddScoped<IAuthService, AuthService>();
 
+// 9. OpenAPI
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// --------------------------------------
-// 10. Seed Admin and Roles
-// --------------------------------------
-
+// 10. Seed roles and initial Admin account
 await DbSeeder.SeedAsync(app.Services, app.Configuration);
 
-// --------------------------------------
-// 11. Configure HTTP Pipeline
-// --------------------------------------
-
+// 11. HTTP pipeline
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

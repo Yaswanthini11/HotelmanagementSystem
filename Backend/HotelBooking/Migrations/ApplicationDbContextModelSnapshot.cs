@@ -128,7 +128,7 @@ namespace HotelBooking.Migrations
 
                     b.Property<string>("BookingReference")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("BookingStatus")
                         .HasColumnType("int");
@@ -143,6 +143,7 @@ namespace HotelBooking.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("UserId")
@@ -150,6 +151,9 @@ namespace HotelBooking.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("BookingId");
+
+                    b.HasIndex("BookingReference")
+                        .IsUnique();
 
                     b.HasIndex("HotelId");
 
@@ -170,6 +174,7 @@ namespace HotelBooking.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("PricePerNight")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("Quantity")
@@ -179,6 +184,7 @@ namespace HotelBooking.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("SubTotal")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("BookingItemId");
@@ -302,7 +308,8 @@ namespace HotelBooking.Migrations
 
                     b.HasKey("InventoryId");
 
-                    b.HasIndex("RoomTypeId");
+                    b.HasIndex("RoomTypeId", "InventoryDate")
+                        .IsUnique();
 
                     b.ToTable("RoomInventories");
                 });
@@ -330,9 +337,10 @@ namespace HotelBooking.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<decimal>("PricePerNight")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TotalRooms")
@@ -340,7 +348,8 @@ namespace HotelBooking.Migrations
 
                     b.HasKey("RoomTypeId");
 
-                    b.HasIndex("HotelId");
+                    b.HasIndex("HotelId", "Name")
+                        .IsUnique();
 
                     b.ToTable("RoomTypes");
                 });
@@ -498,13 +507,13 @@ namespace HotelBooking.Migrations
                     b.HasOne("HotelBooking.Models.Hotel", "Hotel")
                         .WithMany("Bookings")
                         .HasForeignKey("HotelId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("HotelBooking.Models.ApplicationUser", "User")
                         .WithMany("Bookings")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Hotel");
@@ -523,7 +532,7 @@ namespace HotelBooking.Migrations
                     b.HasOne("HotelBooking.Models.RoomType", "RoomType")
                         .WithMany("BookingItems")
                         .HasForeignKey("RoomTypeId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Booking");
@@ -536,7 +545,7 @@ namespace HotelBooking.Migrations
                     b.HasOne("HotelBooking.Models.Amenity", "Amenity")
                         .WithMany("HotelAmenities")
                         .HasForeignKey("AmenityId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("HotelBooking.Models.Hotel", "Hotel")
@@ -577,7 +586,7 @@ namespace HotelBooking.Migrations
                     b.HasOne("HotelBooking.Models.Hotel", "Hotel")
                         .WithMany("RoomTypes")
                         .HasForeignKey("HotelId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Hotel");
@@ -588,7 +597,7 @@ namespace HotelBooking.Migrations
                     b.HasOne("HotelBooking.Models.Amenity", "Amenity")
                         .WithMany("RoomTypeAmenities")
                         .HasForeignKey("AmenityId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("HotelBooking.Models.RoomType", "RoomType")
