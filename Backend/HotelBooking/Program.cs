@@ -3,7 +3,7 @@ using HotelBooking.Services;
 using System;
 using System.Security.Claims;
 using System.Text;
-
+using HotelBooking.Middleware;
 using HotelBooking.Data;
 using HotelBooking.Models;
 using HotelBooking.Repositories.Implementations;
@@ -121,6 +121,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // 10. Seed roles and initial Admin account
 await DbSeeder.SeedAsync(app.Services, app.Configuration);
