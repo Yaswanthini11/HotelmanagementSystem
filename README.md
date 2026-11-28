@@ -52,6 +52,7 @@ HotelmanagementSystem/
 │       ├── Models/
 │       ├── Repositories/
 │       ├── Services/
+│       ├── Middleware/
 │       ├── Program.cs
 │       ├── appsettings.json
 │       └── HotelBooking.csproj
